@@ -1,9 +1,13 @@
+import contextvars
 import asyncio
 import collections.abc
 import contextlib
 import types
+from typing import Any, cast
 
 from .tasks import task_factory as _task_factory, Task as _Task
+
+from typing_extensions import Self, TypeVar
 
 
 UNCANCEL_DONE = object()
@@ -36,32 +40,41 @@ class WaitTaskRescheduled:
 def _async_yield(v):
     return (yield v)
 
+_YieldT_co = TypeVar("_YieldT_co", covariant=True)
+_SendT_contra = TypeVar("_SendT_contra", contravariant=True, default=None)
+_ReturnT_co = TypeVar("_ReturnT_co", covariant=True, default=None)
+_SendT_contra_nd = TypeVar("_SendT_contra_nd", contravariant=True)
+_ReturnT_co_nd = TypeVar("_ReturnT_co_nd", covariant=True)
 
-class WrapCoro(collections.abc.Coroutine):
-    def __init__(self, coro, context):
+
+class WrapCoro(collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd], collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd]):
+    def __init__(self, coro: collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd], context: contextvars.Context):
         self._coro = coro
         self._context = context
 
-    def __await__(self):
+    def __await__(self) -> Self:
         return self
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
-        return self.send(None)
+    def __next__(self) -> _YieldT_co:
+        return self.send(cast(_SendT_contra_nd, None))
 
-    def throw(self, *exc_info):
+    def throw(self, *exc_info) -> _YieldT_co:
         result = self._context.run(self._coro.throw, *exc_info)
         if result is UNCANCEL_DONE:
             raise StopIteration
         return result
 
-    def send(self, v):
+    def send(self, v: _SendT_contra_nd) -> _YieldT_co:
         result = self._context.run(self._coro.send, v)
         if result is UNCANCEL_DONE:
             raise StopIteration
         return result
+
+    def close(self) -> None:
+        super().close()
 
 
 @contextlib.asynccontextmanager

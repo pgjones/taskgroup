@@ -3,49 +3,61 @@ from __future__ import annotations
 import asyncio
 import collections.abc
 import contextvars
-from typing import Any, Awaitable, TypeVar, cast
+from typing import Any, cast, TypeAlias
+from typing_extensions import TypeVar
+import sys
 
-_YieldT = TypeVar("_YieldT")
-_SendT = TypeVar("_SendT")
-_ReturnT = TypeVar("_ReturnT", covariant=True)
+_YieldT_co = TypeVar("_YieldT_co", covariant=True)
+_SendT_contra = TypeVar("_SendT_contra", contravariant=True, default=None)
+_ReturnT_co = TypeVar("_ReturnT_co", covariant=True, default=None)
+_SendT_contra_nd = TypeVar("_SendT_contra_nd", contravariant=True)
+_ReturnT_co_nd = TypeVar("_ReturnT_co_nd", covariant=True)
 
-class _Interceptor(collections.abc.Coroutine[_YieldT, _SendT, _ReturnT]):
+_T = TypeVar("_T")
+_T_co = TypeVar("_T_co", covariant=True)
+_TaskYieldType: TypeAlias = asyncio.Future[object] | None
+
+if sys.version_info >= (3, 12):
+    _TaskCompatibleCoro: TypeAlias = collections.abc.Coroutine[Any, Any, _T_co]
+elif sys.version_info >= (3, 9):
+    _TaskCompatibleCoro: TypeAlias = collectiona.abc.Generator[_TaskYieldType, None, _T_co] | Coroutine[Any, Any, _T_co]
+
+class _Interceptor(collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd], collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd]):
+
     def __init__(
         self,
         coro: (
-            collections.abc.Coroutine[_YieldT, _SendT, _ReturnT]
-            | collections.abc.Generator[_YieldT, _SendT, _ReturnT]
+            collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd]
+            | collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd]
         ),
         context: contextvars.Context,
     ):
         self.__coro = coro
         self.__context = context
 
-    def send(self, v: _SendT):
+    def send(self, v: _SendT_contra_nd) -> _YieldT_co:
         return self.__context.run(self.__coro.send, v)
 
-    def throw(self, e: BaseException):
-        return self.__context.run(self.__coro.throw, e)
+    def throw(self, *exc_info) -> _YieldT_co:
+        return self.__context.run(self.__coro.throw, *exc_info)
 
     def __getattr__(self, name):
         return getattr(self.__coro, name)
 
+    def close(self) -> None:
+        super().close()
 
-class Task(asyncio.Task[_ReturnT]):
+
+class Task(asyncio.Task[_T_co]):
     def __init__(
         self,
-        coro: (
-            Awaitable[_ReturnT]
-            | collections.abc.Coroutine[_YieldT, _SendT, _ReturnT]
-            | collections.abc.Generator[_YieldT, _SendT, _ReturnT]
-        ),
+        coro: _TaskCompatibleCoro[_T_co],
         *args,
         context=None,
         **kwargs
     ) -> None:
         self._num_cancels_requested = 0
         if context is not None:
-            assert isinstance(coro, (collections.abc.Coroutine, collections.abc.Generator))
             coro = _Interceptor(coro, context)
         super().__init__(coro, *args, **kwargs)  # type: ignore
 
@@ -62,11 +74,11 @@ class Task(asyncio.Task[_ReturnT]):
             self._num_cancels_requested -= 1
         return self._num_cancels_requested
 
-    def get_coro(self) -> collections.abc.Generator[Any, Any, _ReturnT] | collections.abc.Awaitable[_ReturnT]:
+    def get_coro(self) -> _TaskCompatibleCoro[_T_co] | None:
         coro = super().get_coro()
         if isinstance(coro, _Interceptor):
             return coro._Interceptor__coro  # type: ignore
         return coro
 
-def task_factory(loop: asyncio.AbstractEventLoop, coro: collections.abc.Coroutine[Any, Any, _ReturnT] | collections.abc.Generator[Any, Any, _ReturnT], **kwargs: Any) -> Task[_ReturnT]:
+def task_factory(loop: asyncio.AbstractEventLoop, coro: _TaskCompatibleCoro[_T_co], **kwargs: Any) -> Task[_T_co]:
     return Task(coro, loop=loop, **kwargs)

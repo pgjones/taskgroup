@@ -19,10 +19,10 @@ _TaskYieldType: TypeAlias = asyncio.Future[object] | None
 
 if sys.version_info >= (3, 12):
     _TaskCompatibleCoro: TypeAlias = collections.abc.Coroutine[Any, Any, _T_co]
-elif sys.version_info >= (3, 9):
+else:
     _TaskCompatibleCoro: TypeAlias = (
-        collectiona.abc.Generator[_TaskYieldType, None, _T_co]
-        | Coroutine[Any, Any, _T_co]
+        collections.abc.Generator[_TaskYieldType, None, _T_co]
+        | collections.abc.Coroutine[Any, Any, _T_co]
     )
 
 

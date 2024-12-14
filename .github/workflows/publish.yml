@@ -22,10 +22,8 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install
-        run: pip install flit && flit install
       - name: Build package
-        run: flit build
+        run: pipx run build
 
       - name: Publish package distributions to PyPI
         if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')

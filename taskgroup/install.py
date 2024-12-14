@@ -3,7 +3,7 @@ import asyncio
 import collections.abc
 import contextlib
 import types
-from typing import Any, cast
+from typing import cast
 
 from .tasks import task_factory as _task_factory, Task as _Task
 
@@ -40,6 +40,7 @@ class WaitTaskRescheduled:
 def _async_yield(v):
     return (yield v)
 
+
 _YieldT_co = TypeVar("_YieldT_co", covariant=True)
 _SendT_contra = TypeVar("_SendT_contra", contravariant=True, default=None)
 _ReturnT_co = TypeVar("_ReturnT_co", covariant=True, default=None)
@@ -47,8 +48,15 @@ _SendT_contra_nd = TypeVar("_SendT_contra_nd", contravariant=True)
 _ReturnT_co_nd = TypeVar("_ReturnT_co_nd", covariant=True)
 
 
-class WrapCoro(collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd], collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd]):
-    def __init__(self, coro: collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd], context: contextvars.Context):
+class WrapCoro(
+    collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd],
+    collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd],
+):
+    def __init__(
+        self,
+        coro: collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd],
+        context: contextvars.Context,
+    ):
         self._coro = coro
         self._context = context
 
@@ -88,6 +96,7 @@ async def install_uncancel():
 
     task = asyncio.current_task()
     assert task is not None
+
     async def asyncio_main():
         return await WrapCoro(task.get_coro(), context=context)  # type: ignore  # see python/typing#1480
 

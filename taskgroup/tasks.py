@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import collections.abc
 import contextvars
-from typing import Any, cast, TypeAlias
+from typing import Any, TypeAlias
 from typing_extensions import TypeVar
 import sys
 
@@ -19,11 +19,17 @@ _TaskYieldType: TypeAlias = asyncio.Future[object] | None
 
 if sys.version_info >= (3, 12):
     _TaskCompatibleCoro: TypeAlias = collections.abc.Coroutine[Any, Any, _T_co]
-elif sys.version_info >= (3, 9):
-    _TaskCompatibleCoro: TypeAlias = collectiona.abc.Generator[_TaskYieldType, None, _T_co] | Coroutine[Any, Any, _T_co]
+else:
+    _TaskCompatibleCoro: TypeAlias = (
+        collections.abc.Generator[_TaskYieldType, None, _T_co]
+        | collections.abc.Coroutine[Any, Any, _T_co]
+    )
 
-class _Interceptor(collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd], collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd]):
 
+class _Interceptor(
+    collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd],
+    collections.abc.Coroutine[_YieldT_co, _SendT_contra_nd, _ReturnT_co_nd],
+):
     def __init__(
         self,
         coro: (
@@ -50,11 +56,7 @@ class _Interceptor(collections.abc.Generator[_YieldT_co, _SendT_contra_nd, _Retu
 
 class Task(asyncio.Task[_T_co]):
     def __init__(
-        self,
-        coro: _TaskCompatibleCoro[_T_co],
-        *args,
-        context=None,
-        **kwargs
+        self, coro: _TaskCompatibleCoro[_T_co], *args, context=None, **kwargs
     ) -> None:
         self._num_cancels_requested = 0
         if context is not None:
@@ -80,5 +82,8 @@ class Task(asyncio.Task[_T_co]):
             return coro._Interceptor__coro  # type: ignore
         return coro
 
-def task_factory(loop: asyncio.AbstractEventLoop, coro: _TaskCompatibleCoro[_T_co], **kwargs: Any) -> Task[_T_co]:
+
+def task_factory(
+    loop: asyncio.AbstractEventLoop, coro: _TaskCompatibleCoro[_T_co], **kwargs: Any
+) -> Task[_T_co]:
     return Task(coro, loop=loop, **kwargs)

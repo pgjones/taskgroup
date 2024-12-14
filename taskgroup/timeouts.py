@@ -33,7 +33,6 @@ class _State(enum.Enum):
 
 @final
 class Timeout:
-
     def __init__(self, when: Optional[float]) -> None:
         self._state = _State.CREATED
 
@@ -71,11 +70,11 @@ class Timeout:
         return self._state in (_State.EXPIRING, _State.EXPIRED)
 
     def __repr__(self) -> str:
-        info = ['']
+        info = [""]
         if self._state is _State.ENTERED:
             when = round(self._when, 3) if self._when is not None else None
             info.append(f"when={when}")
-        info_str = ' '.join(info)
+        info_str = " ".join(info)
         return f"<Timeout [{self._state.value}]{info_str}>"
 
     @contextlib.asynccontextmanager
@@ -100,7 +99,10 @@ class Timeout:
                 if self._state is _State.EXPIRING:
                     self._state = _State.EXPIRED
 
-                    if self._task.uncancel() <= self._cancelling and exc_type is exceptions.CancelledError:
+                    if (
+                        self._task.uncancel() <= self._cancelling
+                        and exc_type is exceptions.CancelledError
+                    ):
                         # Since there are no outstanding cancel requests, we're
                         # handling this.
                         raise TimeoutError from exc_value

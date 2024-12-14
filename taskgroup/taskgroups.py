@@ -25,7 +25,6 @@ _T = TypeVar("_T")
 
 
 class TaskGroup:
-
     def __init__(self) -> None:
         self._entered = False
         self._exiting = False
@@ -40,24 +39,23 @@ class TaskGroup:
         self._cmgr = self._cmgr_factory()
 
     def __repr__(self) -> str:
-        info = ['']
+        info = [""]
         if self._tasks:
-            info.append(f'tasks={len(self._tasks)}')
+            info.append(f"tasks={len(self._tasks)}")
         if self._errors:
-            info.append(f'errors={len(self._errors)}')
+            info.append(f"errors={len(self._errors)}")
         if self._aborting:
-            info.append('cancelling')
+            info.append("cancelling")
         elif self._entered:
-            info.append('entered')
+            info.append("entered")
 
-        info_str = ' '.join(info)
-        return f'<TaskGroup{info_str}>'
+        info_str = " ".join(info)
+        return f"<TaskGroup{info_str}>"
 
     @contextlib.asynccontextmanager
     async def _cmgr_factory(self) -> AsyncGenerator[Self, None]:
         if self._entered:
-            raise RuntimeError(
-                f"TaskGroup {self!r} has been already entered")
+            raise RuntimeError(f"TaskGroup {self!r} has been already entered")
         self._entered = True
 
         if self._loop is None:
@@ -67,14 +65,17 @@ class TaskGroup:
             self._parent_task = tasks.current_task(self._loop)
             if self._parent_task is None:
                 raise RuntimeError(
-                    f'TaskGroup {self!r} cannot determine the parent task')
+                    f"TaskGroup {self!r} cannot determine the parent task"
+                )
 
             try:
                 yield self
             finally:
                 et, exc, _ = sys.exc_info()
                 self._exiting = True
-                propagate_cancellation_error = exc if et is exceptions.CancelledError else None
+                propagate_cancellation_error = (
+                    exc if et is exceptions.CancelledError else None
+                )
 
             if self._parent_cancel_requested:
                 # If this flag is set we *must* call uncancel().
@@ -148,7 +149,7 @@ class TaskGroup:
                     errors = self._errors
                     self._errors = None
 
-                    me = BaseExceptionGroup('unhandled errors in a TaskGroup', errors)
+                    me = BaseExceptionGroup("unhandled errors in a TaskGroup", errors)
                     raise me from None
 
     async def __aenter__(self) -> Self:
@@ -157,8 +158,13 @@ class TaskGroup:
     async def __aexit__(self, *exc_info) -> bool | None:
         return await self._cmgr.__aexit__(*exc_info)  # type: ignore
 
-
-    def create_task(self, coro: Coroutine[Any, Any, _T], *, name: str | None = None, context: Context | None = None) -> Task[_T]:
+    def create_task(
+        self,
+        coro: Coroutine[Any, Any, _T],
+        *,
+        name: str | None = None,
+        context: Context | None = None,
+    ) -> Task[_T]:
         if not self._entered:
             raise RuntimeError(f"TaskGroup {self!r} has not been entered")
         if self._exiting and not self._tasks:
@@ -220,12 +226,14 @@ class TaskGroup:
         if self._parent_task.done():
             # Not sure if this case is possible, but we want to handle
             # it anyways.
-            self._loop.call_exception_handler({
-                'message': f'Task {task!r} has errored out but its parent '
-                           f'task {self._parent_task} is already completed',
-                'exception': exc,
-                'task': task,
-            })
+            self._loop.call_exception_handler(
+                {
+                    "message": f"Task {task!r} has errored out but its parent "
+                    f"task {self._parent_task} is already completed",
+                    "exception": exc,
+                    "task": task,
+                }
+            )
             return
 
         if not self._aborting and not self._parent_cancel_requested:

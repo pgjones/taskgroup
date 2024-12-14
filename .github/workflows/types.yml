@@ -15,4 +15,4 @@ jobs:
       - name: Install
         run: pip install .
 
-      - uses: jakebailey/pyright-action@v1
+      - uses: jakebailey/pyright-action@v2

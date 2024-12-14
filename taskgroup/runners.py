@@ -4,7 +4,7 @@
 # support uncancel and contexts
 from __future__ import annotations
 
-__all__ = ('Runner', 'run')
+__all__ = ("Runner", "run")
 
 import collections.abc
 import contextvars
@@ -27,6 +27,7 @@ class _State(enum.Enum):
 
 
 _T = TypeVar("_T")
+
 
 @final
 class Runner:
@@ -61,8 +62,8 @@ class Runner:
         self,
         *,
         debug: bool | None = None,
-        loop_factory: collections.abc.Callable[[], AbstractEventLoop] | None = None
-        ) -> None:
+        loop_factory: collections.abc.Callable[[], AbstractEventLoop] | None = None,
+    ) -> None:
         self._state = _State.CREATED
         self._debug = debug
         self._loop_factory = loop_factory
@@ -102,7 +103,12 @@ class Runner:
         assert self._loop is not None
         return self._loop
 
-    def run(self, coro: collections.abc.Coroutine[Any, Any, _T], *, context: contextvars.Context | None = None) -> _T:
+    def run(
+        self,
+        coro: collections.abc.Coroutine[Any, Any, _T],
+        *,
+        context: contextvars.Context | None = None,
+    ) -> _T:
         """Run a coroutine inside the embedded event loop."""
         if not coroutines.iscoroutine(coro):
             raise ValueError("a coroutine was expected, got {!r}".format(coro))
@@ -110,7 +116,8 @@ class Runner:
         if events._get_running_loop() is not None:
             # fail fast with short traceback
             raise RuntimeError(
-                "Runner.run() cannot be called from a running event loop")
+                "Runner.run() cannot be called from a running event loop"
+            )
 
         self._lazy_init()
         assert self._loop is not None
@@ -119,7 +126,8 @@ class Runner:
             context = self._context
         task = _task_factory(self._loop, coro, context=context)
 
-        if (threading.current_thread() is threading.main_thread()
+        if (
+            threading.current_thread() is threading.main_thread()
             and signal.getsignal(signal.SIGINT) is signal.default_int_handler
         ):
             sigint_handler = functools.partial(self._on_sigint, main_task=task)
@@ -145,7 +153,8 @@ class Runner:
                     raise KeyboardInterrupt()
             raise  # CancelledError
         finally:
-            if (sigint_handler is not None
+            if (
+                sigint_handler is not None
                 and signal.getsignal(signal.SIGINT) is sigint_handler
             ):
                 signal.signal(signal.SIGINT, signal.default_int_handler)
@@ -181,7 +190,9 @@ class Runner:
         raise KeyboardInterrupt()
 
 
-def run(main: collections.abc.Coroutine[Any, Any, _T], *, debug: bool | None = None) -> _T:
+def run(
+    main: collections.abc.Coroutine[Any, Any, _T], *, debug: bool | None = None
+) -> _T:
     """Execute the coroutine and return the result.
 
     This function runs the passed coroutine, taking care of
@@ -207,8 +218,7 @@ def run(main: collections.abc.Coroutine[Any, Any, _T], *, debug: bool | None = N
     """
     if events._get_running_loop() is not None:
         # fail fast with short traceback
-        raise RuntimeError(
-            "asyncio.run() cannot be called from a running event loop")
+        raise RuntimeError("asyncio.run() cannot be called from a running event loop")
 
     with Runner(debug=debug) as runner:
         return runner.run(main)
@@ -228,8 +238,10 @@ def _cancel_all_tasks(loop):
         if task.cancelled():
             continue
         if task.exception() is not None:
-            loop.call_exception_handler({
-                'message': 'unhandled exception during asyncio.run() shutdown',
-                'exception': task.exception(),
-                'task': task,
-            })
+            loop.call_exception_handler(
+                {
+                    "message": "unhandled exception during asyncio.run() shutdown",
+                    "exception": task.exception(),
+                    "task": task,
+                }
+            )

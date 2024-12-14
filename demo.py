@@ -3,6 +3,7 @@ import contextlib
 import taskgroup
 import exceptiongroup
 
+
 class ConnectionClosedError(Exception):
     pass
 
@@ -39,7 +40,7 @@ async def main():
             async with taskgroup.timeout(0.1):
                 await asyncio.sleep(0.5)
         except asyncio.CancelledError:
-            print(f"got cancelled incorrectly!")
+            print("got cancelled incorrectly!")
             raise
         except TimeoutError:
             print("timeout as expected")
